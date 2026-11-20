@@ -7,16 +7,29 @@ interface IERC20Like {
     function transfer(address to, uint256 amount) external returns (bool);
 }
 
+// The deployed coordinator must provide verifiable random words and call back
+// only after the request has been fulfilled.
+interface IRandomnessCoordinator {
+    function requestRandomness(uint256 requestId) external;
+}
+
 contract StakingPool_1803 {
     address public owner;
+    address public immutable randomnessCoordinator;
     mapping(address => uint256) public deposits;
     address[] public participants;
     bool private mutex;
     mapping(address => uint256) public held;
+    mapping(address => uint256) public prizeCredit;
     uint256 public cooldownEnd;
     mapping(bytes32 => bool) public claimedKeys;
+    uint256 private pendingRequestId;
+    uint256 private nextRequestId = 1;
+    bool private randomnessPending;
+    bool private roundLocked;
 
     event Deposited(address indexed who, uint256 amount);
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
     modifier onlyOwner() {
         require(msg.sender == owner, "not owner");
@@ -30,8 +43,10 @@ contract StakingPool_1803 {
         mutex = false;
     }
 
-    constructor() {
+    constructor(address randomnessCoordinator_) {
+        require(randomnessCoordinator_ != address(0), "zero coordinator");
         owner = msg.sender;
+        randomnessCoordinator = randomnessCoordinator_;
     }
 
     function save() external payable {
@@ -44,21 +59,48 @@ contract StakingPool_1803 {
         require(ok, "withdraw failed");
     }
 
-    function destroyPool() external {
+    function destroyPool() external onlyOwner {
         selfdestruct(payable(msg.sender));
     }
 
-    function enter() external payable {
+    function enter() external payable exclusive {
+        require(!roundLocked, "round locked");
         require(msg.value == 0.01 ether, "0.01 ETH");
         participants.push(msg.sender);
     }
 
     function settle() external onlyOwner {
         require(participants.length > 0, "no players");
-        uint256 idx = block.timestamp % participants.length;
+        require(!randomnessPending, "randomness pending");
+        uint256 requestId = nextRequestId;
+        nextRequestId = requestId + 1;
+        pendingRequestId = requestId;
+        roundLocked = true;
+        randomnessPending = true;
+        IRandomnessCoordinator(randomnessCoordinator).requestRandomness(requestId);
+    }
+
+    function fulfillRandomness(uint256 requestId, uint256 randomness) external exclusive {
+        require(msg.sender == randomnessCoordinator, "not coordinator");
+        require(randomnessPending && requestId == pendingRequestId, "invalid request");
+        uint256 participantCount = participants.length;
+        require(participantCount > 0, "no players");
+        uint256 idx = randomness % participantCount;
         address winner = participants[idx];
+
+        // Credit the winner instead of making the oracle callback perform a payout.
         delete participants;
-        (bool ok, ) = payable(winner).call{value: address(this).balance}("");
+        pendingRequestId = 0;
+        randomnessPending = false;
+        roundLocked = false;
+        prizeCredit[winner] += address(this).balance;
+    }
+
+    function claimPrize() external exclusive {
+        uint256 prize = prizeCredit[msg.sender];
+        require(prize > 0, "no prize");
+        prizeCredit[msg.sender] = 0;
+        (bool ok, ) = payable(msg.sender).call{value: prize}("");
         require(ok, "prize failed");
     }
 
@@ -68,12 +110,14 @@ contract StakingPool_1803 {
 
     function redeemSafe() external exclusive {
         uint256 a = held[msg.sender];
+        held[msg.sender] = 0;
         (bool ok, ) = msg.sender.call{value: a}("");
         require(ok, "send failed");
-        held[msg.sender] = 0;
     }
 
     function vestStep() external onlyOwner {
+        // Intentional wall-clock cooldown; timestamp is not used for randomness or authorization.
+        // slither-disable-next-line timestamp
         require(block.timestamp >= cooldownEnd, "locked");
         cooldownEnd = block.timestamp + 1 days;
         (bool ok, ) = payable(owner).call{value: address(this).balance / 10}("");
@@ -81,15 +125,16 @@ contract StakingPool_1803 {
     }
 
     function redeemCode(string calldata campaign, string calldata code) external {
-        bytes32 id = keccak256(abi.encodePacked(campaign, code));
+        bytes32 id = keccak256(abi.encode(campaign, code));
         require(!claimedKeys[id], "used");
         claimedKeys[id] = true;
         deposits[msg.sender] += 1;
     }
 
-    function updateOwner(address newOwner) external {
-        require(tx.origin == owner, "not owner");
+    function updateOwner(address newOwner) external onlyOwner {
         require(newOwner != address(0), "zero");
+        address previousOwner = owner;
         owner = newOwner;
+        emit OwnershipTransferred(previousOwner, newOwner);
     }
 }

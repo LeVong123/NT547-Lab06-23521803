@@ -1,0 +1,35 @@
+COMMAND: slither AuditTarget.sol --config-file config/slither.raw.json --fail-none --json evidence/after_raw/slither.json
+SLITHER_VERSION:
+0.11.6
+
+SOLC_VERSION:
+solc, the solidity compiler commandline interface
+Version: 0.8.24+commit.e11b9ed9.Linux.g++
+
+
+Detector: low-level-calls
+Low level call in StakingPool_1803.ownerWithdraw(uint256) (AuditTarget.sol#57-60):
+	- (ok,None) = address(owner).call{value: amount}() (AuditTarget.sol#58)
+Low level call in StakingPool_1803.claimPrize() (AuditTarget.sol#99-105):
+	- (ok,None) = address(msg.sender).call{value: prize}() (AuditTarget.sol#103)
+Low level call in StakingPool_1803.redeemSafe() (AuditTarget.sol#111-116):
+	- (ok,None) = msg.sender.call{value: a}() (AuditTarget.sol#114)
+Low level call in StakingPool_1803.vestStep() (AuditTarget.sol#118-125):
+	- (ok,None) = address(owner).call{value: address(this).balance / 10}() (AuditTarget.sol#123)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#low-level-calls
+
+Detector: naming-convention
+Contract StakingPool_1803 (AuditTarget.sol#16-140) is not in CapWords
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#conformance-to-solidity-naming-conventions
+AuditTarget.sol analyzed (3 contracts with 102 detectors), 5 result(s) found
+Multiple frameworks detected: solc, Solc-json. Using solc (highest priority). Use --compile-force-framework to override.
+'solc --version' running
+'solc AuditTarget.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/mnt/e/Lab06_SinhVien/Lab06_SinhVien' running
+Compilation warnings/errors on AuditTarget.sol:
+Warning: "selfdestruct" has been deprecated. Note that, starting from the Cancun hard fork, the underlying opcode no longer deletes the code and data associated with an account and only transfers its Ether to the beneficiary, unless executed in the same transaction in which the contract was created (see EIP-6780). Any use in newly deployed contracts is strongly discouraged even if the new behavior is taken into account. Future changes to the EVM might further reduce the functionality of the opcode.
+  --> AuditTarget.sol:63:9:
+   |
+63 |         selfdestruct(payable(msg.sender));
+   |         ^^^^^^^^^^^^
+
+

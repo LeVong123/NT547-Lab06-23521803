@@ -3,7 +3,7 @@
 **MSSV:** 23521803  | **Họ tên:** Lê Vọng | **Lớp:** NT547.R11.ANTT
 **Session code tự sinh:** SC-93224C | **Tên contract:** StakingPool_1803
 **Solidity / Slither:** 0.8.24 / 0.11.6 | **Ngày hoàn thành:** 2026-11-20
-**URL GitHub repository:** [chưa tạo]
+**URL GitHub repository:** https://github.com/LeVong123/NT547-Lab06-23521803
 
 ## 1. Static scan (2,0 điểm)
 
@@ -28,17 +28,17 @@ ghi “Manual review / Not reported”, KHÔNG sửa slither.json hoặc tạo f
 
 | Detector + vị trí | TP / FP / Chưa kết luận | Bằng chứng kiểm soát/khả năng khai thác | Biện pháp (Fix / Accept có lý do) | Sau sửa |
 |---|---|---|---|---|
-| `weak-prng` — `settle`, dòng 58 | TP | Hàm chỉOwner chọn người thắng và chuyển toàn bộ ETH bằng chỉ số lấy từ `block.timestamp % participants.length`; người tạo block có thể ảnh hưởng timestamp, còn owner có thể trì hoãn thời điểm settle. | Fix: thay nguồn lựa chọn dựa trên timestamp bằng cơ chế randomness phù hợp (ví dụ commit-reveal có kiểm soát); không suppression vì kết quả quyết định người nhận tiền. | Chưa áp dụng; chờ baseline CI RED rồi sửa và scan after. |
-| `encode-packed-collision` — `redeemCode`, dòng 84 | TP | Hai chuỗi động được nối không phân cách trước khi băm; cặp chuỗi khác nhau có thể tạo cùng ID, khiến khóa dùng một lần của cặp này chặn cặp kia. Không kết luận rằng có thể dùng lại cùng một ID vì `claimedKeys[id]` vẫn chặn lần hai. | Fix: dùng `abi.encode(campaign, code)` để mã hóa ranh giới hai giá trị trước khi băm. | Chưa áp dụng; chờ baseline CI RED rồi sửa và scan after. |
-| `reentrancy-eth` — `redeemSafe`, dòng 71 | Accepted / contextual | `redeemSafe` và `saveSafe` đều dùng `exclusive`; modifier đặt `mutex = true` trước thân hàm nên callback không thể gọi lại các entrypoint này để rút lặp `held`. Đây làm giảm rủi ro của đường reentrancy ETH mà detector báo High. `updateOwner` là đường riêng có lỗi `tx.origin`, được triage riêng. | Giữ mutex và harden theo Checks-Effects-Interactions: đặt `held[msg.sender] = 0` trước external call; nếu call thất bại, revert sẽ khôi phục state. | Chưa áp dụng; chờ baseline CI RED rồi sửa và scan after. |
-| `suicidal` — `destroyPool`, dòng 47-49 | TP | Hàm không có `onlyOwner`; bất kỳ địa chỉ nào cũng có thể gọi và chuyển số ETH còn lại của contract cho chính caller. Sau Cancun/EIP-6780, trong trường hợp thông thường không được khẳng định rằng code/storage bị xóa; việc chuyển ETH vẫn là tác hại. | Fix: bỏ chức năng nếu không cần; nếu cần đóng pool thì giới hạn `onlyOwner` và mô tả rõ tác dụng. | Chưa áp dụng; chờ baseline CI RED rồi sửa và scan after. |
-| `tx-origin` — `updateOwner`, dòng 91 | TP | Nếu owner bị dụ gọi contract trung gian, `tx.origin` vẫn là owner trong khi `msg.sender` là contract đó; contract trung gian có thể gọi `updateOwner(attacker)` để chiếm quyền quản trị. | Fix: kiểm tra `msg.sender == owner` thay cho `tx.origin == owner`. | Chưa áp dụng; chờ baseline CI RED rồi sửa và scan after. |
-| `timestamp` — `vestStep`, dòng 77 | Accepted / contextual | Đây là kiểm tra cooldown một ngày trong hàm `onlyOwner`, không dùng timestamp để chọn ngẫu nhiên hay cấp quyền; sai lệch timestamp ở ranh giới có thể ảnh hưởng thời điểm gọi nhưng không bỏ qua quyền owner. | Accept có lý do: giữ cooldown theo thời gian; nêu rõ đây không phải nguồn randomness và chỉ chấp nhận sai lệch thời điểm nhỏ theo ngữ cảnh chain. | Chưa scan after; dự kiến có thể còn detector Low trong raw. |
+| `weak-prng` — `settle`, dòng 58 | TP | Baseline dùng timestamp để quyết định người nhận toàn bộ ETH; người tạo block có thể ảnh hưởng thời điểm và owner có thể trì hoãn settle. | Fix: dùng coordinator randomness bất đồng bộ; lưu request ID và khóa lượt chơi trước khi gọi coordinator, chỉ chấp nhận callback từ đúng coordinator/request. Kết quả được ghi thành `prizeCredit` để người thắng tự rút. Coordinator phải là dịch vụ randomness có thể tin cậy; đây là giao diện mẫu cho bài lab, chưa deploy. | Đã sửa; không còn `weak-prng` trong raw after. |
+| `encode-packed-collision` — `redeemCode`, dòng 84 | TP | Hai chuỗi động được nối không phân cách trước khi băm; cặp chuỗi khác nhau có thể tạo cùng ID, khiến khóa dùng một lần của cặp này chặn cặp kia. Không kết luận rằng có thể dùng lại cùng một ID vì `claimedKeys[id]` vẫn chặn lần hai. | Fix: dùng `keccak256(abi.encode(campaign, code))`, giữ ranh giới giữa hai giá trị trước khi băm. | Đã sửa; không còn detector này trong raw after. |
+| `reentrancy-eth` — `redeemSafe`, dòng 71 | Accepted / contextual | `redeemSafe` và `saveSafe` dùng `exclusive`, nên callback không thể gọi lại các entrypoint đó để rút lặp `held`. Finding baseline là rủi ro tiềm năng do ghi state sau call; mutex đã chặn đường khai thác qua hai hàm này. | Giữ mutex và áp dụng Checks-Effects-Interactions: xóa `held[msg.sender]` trước external call; prize dùng pull-payment và xóa credit trước khi gửi. Đồng thời lưu request ID trước lời gọi coordinator để không ghi state sau external call. | Đã harden; `reentrancy-eth` không còn trong raw after. |
+| `suicidal` — `destroyPool`, dòng 47-49 | TP | Baseline không có `onlyOwner`; bất kỳ địa chỉ nào cũng có thể gọi và chuyển ETH còn lại cho caller. Sau Cancun/EIP-6780, không khẳng định code/storage bị xóa trong trường hợp thông thường; việc chuyển ETH vẫn có thể xảy ra. | Fix: thêm `onlyOwner`. Quyền đóng pool vẫn là quyền đặc biệt của owner và có thể chuyển ETH cho owner; không mô tả hành vi như xóa toàn bộ contract trên Cancun trở đi. | Đã sửa; không còn `suicidal` trong raw after. |
+| `tx-origin` — `updateOwner`, dòng 91 | TP | Nếu owner bị dụ gọi contract trung gian, `tx.origin` vẫn là owner trong khi `msg.sender` là contract đó; contract trung gian có thể gọi `updateOwner(attacker)` để chiếm quyền quản trị. | Fix: dùng modifier `onlyOwner` kiểm tra `msg.sender == owner`; phát event `OwnershipTransferred` khi đổi owner. | Đã sửa; không còn `tx-origin` trong raw after. |
+| `timestamp` — `vestStep`, dòng 77 | Accepted / contextual | Đây là cooldown một ngày trong hàm `onlyOwner`, không dùng timestamp để chọn ngẫu nhiên hay cấp quyền; sai lệch ở ranh giới có thể ảnh hưởng thời điểm gọi nhưng không bỏ qua quyền owner. | Giữ cooldown; đặt suppression đúng detector `timestamp` ngay tại phép so sánh và ghi comment rằng timestamp chỉ điều khiển thời gian chờ. Không áp dụng suppression cho finding có thể khai thác. | Raw after không còn Low; suppression có giải thích tại đúng dòng. |
 
 - Kịch bản khai thác TP: owner bị dụ gọi contract trung gian do kẻ tấn công kiểm soát -> contract trung gian gọi `updateOwner(attacker)` khi `tx.origin == owner` -> state `owner` đổi sang địa chỉ attacker -> attacker chiếm quyền quản trị.
-- Finding severity cao nhưng risk thực tế thấp hơn: `reentrancy-eth` báo High tại `redeemSafe`, nhưng modifier `exclusive` khóa cả `redeemSafe` và `saveSafe` trong lúc external call; callback không thể rút lặp số dư qua các entrypoint này. Lỗi `tx.origin` ở `updateOwner` được đánh giá riêng. Sẽ áp dụng Checks-Effects-Interactions như hardening và kiểm tra lại sau scan.
-- Bằng chứng `git diff` và scan after: chờ baseline CI RED trước khi sửa; bổ sung diff, kết quả hai chế độ scan và giải thích detector còn lại sau khi hoàn tất.
-- Suppression: hiện chưa dùng `slither-disable-next-line`; không suppression finding khai thác được và không loại High/Medium khỏi cấu hình.
+- Finding `reentrancy-eth` ban đầu bị giảm khả năng khai thác bởi mutex `exclusive`; vẫn harden theo Checks-Effects-Interactions để cập nhật state trước call. Finding `reentrancy-benign` tạm xuất hiện khi request randomness ghi request ID sau external call; đã đổi thứ tự để ghi request ID trước call và raw after không còn detector reentrancy.
+- Bằng chứng after: raw `evidence/after_raw/summary.json` có High 0, Medium 0, Low 0, Informational 5, Optimization 0 (tổng 5); configured `evidence/after_configured/summary.json` có 0 finding. `evidence/after_diff.patch` lưu diff source và công cụ scan. Cả hai thư mục after đều có đủ 4 file.
+- 5 Informational còn lại: 4 `low-level-calls` đều kiểm tra `ok` bằng `require` sau lời gọi ETH; 1 `naming-convention` do giữ tên contract theo MSSV. Đây không phải High/Medium và không bị ẩn khỏi cấu hình bằng exclusion bổ sung. Suppression duy nhất là `timestamp` Low tại cooldown `vestStep`, có comment tại đúng vị trí; cấu hình không loại High/Medium.
 
 ## 3. Kiến trúc / Inheritance (1,5 điểm)
 
@@ -51,8 +51,8 @@ ghi “Manual review / Not reported”, KHÔNG sửa slither.json hoặc tạo f
 
 | Phase | Commit (full/short SHA) | Run URL | Kết quả | Detector khiến RED / lý do GREEN |
 |---|---|---|---|---|
-| Baseline vulnerable | | | RED | |
-| Patched | | | GREEN | |
+| Baseline vulnerable | `61ec9c6e1b787c4590b28c9639a69e5e3967790a` | [GitHub Actions run #1](https://github.com/LeVong123/NT547-Lab06-23521803/actions/runs/44736431953) | RED (đúng baseline) | Slither và solc cài thành công, contract biên dịch được; scan phát hiện 5 detector (`weak-prng`, `encode-packed-collision`, `reentrancy-eth`, `suicidal`, `tx-origin`). Configured local summary có High 4 / Medium 1 nên gate `fail-on: medium` làm run RED. |
+| Patched | Chờ commit/push code đã vá | Chờ Actions run sau push | Chờ CI xác nhận | Local raw: High 0 / Medium 0; configured: 0. Chưa ghi GREEN cho đến khi Actions thực tế chạy thành công. |
 
 - So sánh local `--fail-none` (thu thập findings) với CI `fail-on: medium`: ...
 - `exclude_low/informational` thay đổi kết quả hiển thị ra sao: ...
@@ -71,9 +71,9 @@ ghi “Manual review / Not reported”, KHÔNG sửa slither.json hoặc tạo f
 
 ## 6. Bằng chứng, tự kiểm
 
-- [ ] `AuditTarget.sol`, `lab_identity.json`
-- [ ] `evidence/before_raw/` và `evidence/before_configured/`
-- [ ] `evidence/after_raw/` và `evidence/after_configured/`
+- [x] `AuditTarget.sol`, `lab_identity.json`
+- [x] `evidence/before_raw/` và `evidence/before_configured/`
+- [x] `evidence/after_raw/` và `evidence/after_configured/`
 - [ ] `evidence/architecture/`
 - [ ] 04 URL Actions run RED/GREEN/RED/GREEN + 04 commit SHA
 - [ ] Link repo và ảnh màn hình có terminal / URL / commit SHA; không cắt mất ngữ cảnh

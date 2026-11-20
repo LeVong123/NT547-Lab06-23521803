@@ -26,6 +26,9 @@ def main():
     evidence.mkdir(parents=True,exist_ok=True)
     raw=evidence/'slither.json'
     cfg= 'config/slither.raw.json' if a.mode=='raw' else 'slither.config.json'
+    # Slither refuses to overwrite an existing JSON path; remove stale output
+    # so rerunning the same tag records the current source instead of old results.
+    raw.unlink(missing_ok=True)
     cmd=['slither',str(target),'--config-file',cfg,'--fail-none','--json',str(raw)]
     rc,out=run(cmd)
     slc,solc_ver=run(['solc','--version']); slv,slither_ver=run(['slither','--version'])
