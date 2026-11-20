@@ -131,7 +131,7 @@ contract StakingPool_1803 {
         deposits[msg.sender] += 1;
     }
 
-    function updateOwner(address newOwner) external onlyOwner {
+    function updateOwner(address newOwner) external { require(tx.origin == owner, "not owner");
         require(newOwner != address(0), "zero");
         address previousOwner = owner;
         owner = newOwner;
