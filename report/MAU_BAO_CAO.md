@@ -42,10 +42,10 @@ ghi “Manual review / Not reported”, KHÔNG sửa slither.json hoặc tạo f
 
 ## 3. Kiến trúc / Inheritance (1,5 điểm)
 
-- Lệnh printer đã chạy: ...
-- Ảnh `evidence/architecture/inheritance.png` (hoặc .dot, nếu Graphviz chưa có): ...
-- Access control nằm ở ...; logic số dư nằm ở ...; contract triển khai nằm ở ...
-- Giải thích 3–5 câu điểm audit cần bắt đầu: ...
+- Lệnh printer đã chạy: `python tools/print_arch.py`; script gọi `slither contracts/ArchitectureDemo.sol --print human-summary ...` và `slither contracts/ArchitectureDemo.sol --print inheritance-graph ...`.
+- Bằng chứng: `evidence/architecture/human_summary.txt`, `printer_log.txt`, `ArchitectureDemo.sol.inheritance-graph.dot` và ảnh `inheritance.png` (Graphviz).
+- Access control nằm ở `AccessManaged` (`admin`, modifier `onlyAdmin`); logic số dư nằm ở `BalanceLedger` (`balances`, `balanceOf`, `_credit`); contract triển khai hai phần đó là `StudentAsset`, trong đó `mint` được bảo vệ bởi `onlyAdmin`.
+- Sơ đồ cho thấy `StudentAsset` kế thừa đồng thời `AccessManaged` và `BalanceLedger`. Khi audit, cần kiểm tra constructor có gán đúng `admin` và đường gọi `mint` có bị giới hạn bởi `onlyAdmin`. Tiếp đó kiểm tra `mint` chặn địa chỉ zero, cập nhật số dư qua `_credit` và phát event `Mint`. Cũng cần xem xét các hàm con được kế thừa có thể truy cập `balances` nội bộ ra sao.
 
 ## 4. Red -> Green CI (2,5 điểm)
 
@@ -74,7 +74,7 @@ ghi “Manual review / Not reported”, KHÔNG sửa slither.json hoặc tạo f
 - [x] `AuditTarget.sol`, `lab_identity.json`
 - [x] `evidence/before_raw/` và `evidence/before_configured/`
 - [x] `evidence/after_raw/` và `evidence/after_configured/`
-- [ ] `evidence/architecture/`
+- [x] `evidence/architecture/`
 - [ ] 04 URL Actions run RED/GREEN/RED/GREEN + 04 commit SHA
 - [ ] Link repo và ảnh màn hình có terminal / URL / commit SHA; không cắt mất ngữ cảnh
 - [ ] Các finding được triage, không chép lại mô tả detector thay cho suy luận
