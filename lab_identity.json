@@ -1,0 +1,9 @@
+{
+  "mssv": "23521803",
+  "session_code": "SC-93224C",
+  "contract": "StakingPool_1803",
+  "baseline_sha256": "e3c017682e18519aff4e9dfd160cd66b465886190755f9c072aecd940c0e462c",
+  "generated_utc": "2026-11-20T10:02:25.381424+00:00",
+  "solidity": "0.8.24",
+  "note": "session_code sinh tai may SV, KHONG do GV cap"
+}
