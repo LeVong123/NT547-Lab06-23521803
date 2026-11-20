@@ -52,7 +52,7 @@ ghi “Manual review / Not reported”, KHÔNG sửa slither.json hoặc tạo f
 | Phase | Commit (full/short SHA) | Run URL | Kết quả | Detector khiến RED / lý do GREEN |
 |---|---|---|---|---|
 | Baseline vulnerable | `61ec9c6e1b787c4590b28c9639a69e5e3967790a` | [GitHub Actions run #1](https://github.com/LeVong123/NT547-Lab06-23521803/actions/runs/44736431953) | RED (đúng baseline) | Slither và solc cài thành công, contract biên dịch được; scan phát hiện 5 detector (`weak-prng`, `encode-packed-collision`, `reentrancy-eth`, `suicidal`, `tx-origin`). Configured local summary có High 4 / Medium 1 nên gate `fail-on: medium` làm run RED. |
-| Patched | Chờ commit/push code đã vá | Chờ Actions run sau push | Chờ CI xác nhận | Local raw: High 0 / Medium 0; configured: 0. Chưa ghi GREEN cho đến khi Actions thực tế chạy thành công. |
+| Patched | `627cbb6a10a1988fa9cdc338df559787e72e6d69` | [GitHub Actions run #2](https://github.com/LeVong123/NT547-Lab06-23521803/actions/runs/44740547670) | GREEN | Push kích hoạt workflow; run `Lab06 Slither gate` hoàn tất thành công (57s). Local raw: High 0 / Medium 0; configured: 0. |
 
 - So sánh local `--fail-none` (thu thập findings) với CI `fail-on: medium`: ...
 - `exclude_low/informational` thay đổi kết quả hiển thị ra sao: ...
