@@ -77,7 +77,7 @@ ghi “Manual review / Not reported”, KHÔNG sửa slither.json hoặc tạo f
 - [x] `evidence/after_raw/` và `evidence/after_configured/`
 - [x] `evidence/architecture/`
 - [x] 04 URL Actions run RED/GREEN/RED/GREEN + 04 commit SHA (baseline `61ec9c6`, patched `627cbb6`, mutation `d6061c5`, revert `95728a5`)
-- [ ] Link repo và ảnh màn hình có terminal / URL / commit SHA; không cắt mất ngữ cảnh
+- [ ] Ảnh GitHub Actions đã lưu tại `evidence/ci/01_baseline_red.jpg`, `02_patched_green.jpg`, `03_mutation_red.jpg`, `03_mutation_red_log.jpg` (finding `tx-origin`), `04_revert_green.jpg`; còn thiếu ảnh terminal push/commit để đủ mục này.
 - [x] Các finding được triage, không chép lại mô tả detector thay cho suy luận
 - [x] Tuyệt đối không có seed phrase, private key, credentials
 
