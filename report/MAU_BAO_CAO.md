@@ -54,20 +54,21 @@ ghi “Manual review / Not reported”, KHÔNG sửa slither.json hoặc tạo f
 | Baseline vulnerable | `61ec9c6e1b787c4590b28c9639a69e5e3967790a` | [GitHub Actions run #1](https://github.com/LeVong123/NT547-Lab06-23521803/actions/runs/44736431953) | RED (đúng baseline) | Slither và solc cài thành công, contract biên dịch được; scan phát hiện 5 detector (`weak-prng`, `encode-packed-collision`, `reentrancy-eth`, `suicidal`, `tx-origin`). Configured local summary có High 4 / Medium 1 nên gate `fail-on: medium` làm run RED. |
 | Patched | `627cbb6a10a1988fa9cdc338df559787e72e6d69` | [GitHub Actions run #2](https://github.com/LeVong123/NT547-Lab06-23521803/actions/runs/44740547670) | GREEN | Push kích hoạt workflow; run `Lab06 Slither gate` hoàn tất thành công (57s). Local raw: High 0 / Medium 0; configured: 0. |
 
-- So sánh local `--fail-none` (thu thập findings) với CI `fail-on: medium`: ...
-- `exclude_low/informational` thay đổi kết quả hiển thị ra sao: ...
+- So sánh local `--fail-none` (thu thập findings) với CI `fail-on: medium`: lệnh local lưu kết quả để triage và có thể trả exit code 0 dù findings tồn tại; CI là quality gate và làm job thất bại khi còn finding ở mức Medium trở lên. Baseline có High 4 / Medium 1 nên RED; sau sửa configured không còn finding nên GREEN.
+- `exclude_low/informational` chỉ ẩn hai mức đó trong configured output; raw vẫn lưu để xem đầy đủ. Cấu hình không loại High/Medium: baseline configured còn High 4 / Medium 1, after configured có 0 vì đã sửa các lỗi mức gate.
 
 ## 5. Mutation RED -> GREEN (1,5 điểm)
 
-- Mutation một dòng: `require(msg.sender == owner, "not owner")` -> `require(tx.origin == owner, "not owner")` trong `modifier onlyOwner`.
-- Detector kỳ vọng: `tx-origin` (mức Medium); xác nhận của em từ CI: ...
+- Theo README, phép thử ban đầu đổi một dòng trong `modifier onlyOwner`: `require(msg.sender == owner, "not owner")` -> `require(tx.origin == owner, "not owner")`. Commit `8bb23277daef35f743450ac616e1645cd884b7c9` chạy GREEN vì Slither 0.11.6 không phát hiện `tx.origin` trong modifier (log báo 0 result); đã revert bằng commit `3e68179b5c20fb1238e362325c23970ca6b38c6f`.
+- Để kiểm chứng detector thật sự bằng CI, mutation một dòng được đặt trực tiếp ở hàm `updateOwner`: đổi `external onlyOwner {` thành `external { require(tx.origin == owner, "not owner");`. Slither báo `tx-origin` Medium tại `AuditTarget.sol:134`, 1 result; CI RED. Sau đó revert commit mutation và push lại.
+- Detector kỳ vọng/xác nhận: `tx-origin` (Medium); log CI mutation ghi rõ finding tại `StakingPool_1803.updateOwner(address)`.
 
 | Phase | Commit SHA | Run URL | Kết quả |
 |---|---|---|---|
-| Mutation | | | RED |
-| Revert mutation | | | GREEN |
+| Mutation (tx.origin trực tiếp trong `updateOwner`) | `d6061c53239d211b2abf0be79140ddf67a93ac98` | [GitHub Actions run #6](https://github.com/LeVong123/NT547-Lab06-23521803/actions/runs/44743841015) | RED — Slither báo `tx-origin` Medium, 1 result |
+| Revert mutation | `95728a5830742c40620d13125b492caf8cac5bf5` | [GitHub Actions run #7](https://github.com/LeVong123/NT547-Lab06-23521803/actions/runs/44744162994) | GREEN — run hoàn tất thành công |
 
-- Giải thích sự thay đổi về nguồn định danh/authorization: ...
+- `msg.sender` là địa chỉ gọi contract trực tiếp, còn `tx.origin` là tài khoản khởi tạo giao dịch ở đầu chuỗi lời gọi. Khi người dùng gọi contract trung gian, contract đó là `msg.sender` nhưng người dùng vẫn là `tx.origin`; vì vậy kiểm tra `tx.origin` có thể cho phép contract trung gian thực hiện thao tác quản trị dưới quyền người dùng. Bản cuối đã revert để `onlyOwner` tiếp tục kiểm tra `msg.sender == owner`.
 
 ## 6. Bằng chứng, tự kiểm
 
@@ -75,9 +76,9 @@ ghi “Manual review / Not reported”, KHÔNG sửa slither.json hoặc tạo f
 - [x] `evidence/before_raw/` và `evidence/before_configured/`
 - [x] `evidence/after_raw/` và `evidence/after_configured/`
 - [x] `evidence/architecture/`
-- [ ] 04 URL Actions run RED/GREEN/RED/GREEN + 04 commit SHA
+- [x] 04 URL Actions run RED/GREEN/RED/GREEN + 04 commit SHA (baseline `61ec9c6`, patched `627cbb6`, mutation `d6061c5`, revert `95728a5`)
 - [ ] Link repo và ảnh màn hình có terminal / URL / commit SHA; không cắt mất ngữ cảnh
-- [ ] Các finding được triage, không chép lại mô tả detector thay cho suy luận
-- [ ] Tuyệt đối không có seed phrase, private key, credentials
+- [x] Các finding được triage, không chép lại mô tả detector thay cho suy luận
+- [x] Tuyệt đối không có seed phrase, private key, credentials
 
-**Nhận xét cuối cùng (5–7 câu):** ...
+**Nhận xét cuối cùng (5–7 câu):** Scan baseline raw tìm 11 findings, trong đó có 4 High và 1 Medium; configured giữ lại 5 findings mức High/Medium. Triage source cho thấy 4 lỗi thiết kế cần sửa và 2 trường hợp cần đánh giá ngữ cảnh; không tạo finding giả cho cảnh báo không được tool báo. Sau khi sửa, raw còn 5 Informational và configured còn 0; không còn High/Medium. GitHub Actions xác nhận baseline RED và bản sửa GREEN. Thử mutation đúng dòng trong modifier không tạo detector với Slither 0.11.6, nên báo cáo phân biệt rõ kết quả đó với mutation trực tiếp tại `updateOwner` đã tạo `tx-origin` và CI RED; commit revert sau đó GREEN. Đồ thị kiến trúc thể hiện `StudentAsset` kế thừa access control và ledger; hợp đồng mục tiêu chỉ dùng cho lab, không deploy lên mainnet.
