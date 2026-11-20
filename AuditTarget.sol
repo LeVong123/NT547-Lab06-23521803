@@ -32,7 +32,7 @@ contract StakingPool_1803 {
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
     modifier onlyOwner() {
-        require(tx.origin == owner, "not owner");
+        require(msg.sender == owner, "not owner");
         _;
     }
 
